@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from collections import defaultdict
 import re
+import pandas as pd
 
 
 PAYWALL_TEXT = "For subscribers"  
@@ -83,27 +84,20 @@ with ThreadPoolExecutor(max_workers=max_threads) as executor:
         future.result()  # triggers exception if any
 
 
+rows = []
 
-import csv
+for date, data in articles_by_date.items():
+    for title, summary, url in zip(data['titles'], data['summaries'], data['urls']):
+        rows.append({
+            'date': date,
+            'title': title,
+            'summary': summary,
+            'url': url
+        })
 
-import csv, json
+df = pd.DataFrame(rows)
 
-out_path = "st_articles_summary.csv"
 
-with open(out_path, "w", newline="", encoding="utf-8") as f:
-    writer = csv.writer(f)
-    writer.writerow(["date", "num_titles", "titles", "summaries", "urls"])
-
-    for dt in sorted(articles_by_date.keys()):
-        data = articles_by_date[dt]
-        writer.writerow([
-            dt,
-            len(data["titles"]),
-            json.dumps(data["titles"], ensure_ascii=False),
-            json.dumps(data["summaries"], ensure_ascii=False),
-            json.dumps(data["urls"], ensure_ascii=False),
-        ])
-
-print(f"Wrote {len(articles_by_date)} rows to {out_path}")
+df.to_csv("dataset/st_business_articles.csv", index=False)
 
 

@@ -1,13 +1,13 @@
 import feedparser, requests
 from bs4 import BeautifulSoup
-
+from newspaper import Article
 # # RSS validity check
 # feed = feedparser.parse("https://www.straitstimes.com/news/business/rss.xml")
 
 # for entry in feed.entries: 
 #     print(entry.title)
-
-# Parsing through XML file 
+import nltk
+nltk.download('punkt_tab')
 
 business_articles = []
 count = 0
@@ -27,7 +27,22 @@ for month in range(10, 0, -1):
             count += 1
             print("Fetched {} business articles".format(count))
 
-for article in business_articles:
-    print(article)
+article = Article(business_articles[0][0])
 
-print("Total business articles fetched: ", len(business_articles))
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
+
+article.download() 
+article.parse()
+article.nlp()
+# Create parser and summarizer
+parser = PlaintextParser.from_string(article.text, Tokenizer("english"))
+summarizer = LsaSummarizer()
+
+# Generate summary (3 sentences)
+summary = summarizer(parser.document, 3)
+summary_text = ' '.join([str(sentence) for sentence in summary])
+dummy_summary = article.summary
+print("Better Summary:", summary_text)
+print("Newspaper3k Summary:", dummy_summary)

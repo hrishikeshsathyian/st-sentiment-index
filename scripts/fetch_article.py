@@ -1,16 +1,18 @@
-import feedparser, requests
-from bs4 import BeautifulSoup
 from newspaper import Article
+from bs4 import BeautifulSoup
+import requests
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from collections import defaultdict
-import time
 import re
 
-articles_by_date = defaultdict(lambda: {"titles": [], "summaries": [], "urls": []})
-non_paywall_article_count = 0
-paywalled_articles = 0
-PAYWALL_TEXT = "For subscribers"
 
+PAYWALL_TEXT = "For subscribers"  
+
+articles_by_date = defaultdict(lambda: {"titles": [], "summaries": [], "urls": []})
+paywalled_articles = 0
+non_paywall_article_count = 0
 
 def extract_published_date(article_html):
 
@@ -25,48 +27,60 @@ def extract_published_date(article_html):
             return None
     return None
 
-for month in range(10, 9, -1): 
-    url = "https://www.straitstimes.com/sitemap/2025/{}/feeds.xml".format(month)
-    soup = BeautifulSoup(requests.get(url).content, "xml")
 
+def extract_article(loc_text):
+    global paywalled_articles, non_paywall_article_count
+    
+    try:
+        article = Article(loc_text)
+        article.download()
+        html = article.html
+        
+        # Check paywall
+        if PAYWALL_TEXT in html:
+            paywalled_articles += 1
+            return None
+        
+        # Extract date
+        published_date = extract_published_date(html)
+        if not published_date:
+            print(f"Could not extract date from: {loc_text}")
+            return None
+        
+        # Parse article
+        article.parse()
+        article.nlp()
+        
+        # Store article info
+        articles_by_date[published_date]["titles"].append(article.title)
+        articles_by_date[published_date]["summaries"].append(article.summary)
+        articles_by_date[published_date]["urls"].append(loc_text)
+        
+        non_paywall_article_count += 1
+        print(f"✓ {published_date}: {article.title}")
+        
+    except Exception as e:
+        print(f"Error processing {loc_text}: {e}")
+
+urls_to_parse = []
+
+for month in range(10, 0, -1): 
+    url = f"https://www.straitstimes.com/sitemap/2025/{month}/feeds.xml"
+    soup = BeautifulSoup(requests.get(url).content, "xml")
+    
     for loc in soup.find_all("loc"):
         if "/business/" in loc.text:
-            try:
-                article = Article(loc.text)
-                article.download()
-                html = article.html
-                # Check paywall
-                if PAYWALL_TEXT in html:
-                    paywalled_articles += 1
-                    continue
-                
-                # Extract date from HTML
-                published_date = extract_published_date(html)
-                
-                if not published_date:
-                    print(f"Could not extract date from: {loc.text}")
-                    continue
+            urls_to_parse.append(loc.text)
 
-                # Parse and get summary
-                article.parse()
-                article.nlp()
-                
-                # if len(articles_by_date[published_date]["titles"]) >= 1:
-                #     continue  # limit to 1 articles per date
+# Number of threads (adjust based on your system)
+max_threads = 15
 
-                # Store everything
-                articles_by_date[published_date]["titles"].append(article.title)
-                articles_by_date[published_date]["summaries"].append(article.summary)
-                articles_by_date[published_date]["urls"].append(loc.text)
-                
-                non_paywall_article_count += 1
-                print(f"✓ {published_date}: {article.title}")
-                
-                time.sleep(1) 
-                
-            except Exception as e:
-                print(f"Error processing {loc.text}: {e}")
-                continue
+with ThreadPoolExecutor(max_workers=max_threads) as executor:
+    futures = [executor.submit(extract_article, url) for url in urls_to_parse]
+    
+    # Optional: wait for all tasks and show progress
+    for future in as_completed(futures):
+        future.result()  # triggers exception if any
 
 
 

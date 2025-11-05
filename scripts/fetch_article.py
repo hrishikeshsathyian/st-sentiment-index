@@ -1,51 +1,95 @@
 import feedparser, requests
 from bs4 import BeautifulSoup
 from newspaper import Article
+from datetime import datetime
+from collections import defaultdict
+import time
+import re
 
-
-# # RSS validity check
-# feed = feedparser.parse("https://www.straitstimes.com/news/business/rss.xml")
-
-# for entry in feed.entries: 
-#     print(entry.title)
-
-## last modified stored as : 2025-10-08T15:59:07.000Z
-
-non_paywall_business_articles = []
-total_count = 0
+articles_by_date = defaultdict(lambda: {"titles": [], "summaries": [], "urls": []})
+non_paywall_article_count = 0
 paywalled_articles = 0
-stop_limit = 10 # js to make testing faster
+PAYWALL_TEXT = "For subscribers"
 
-for month in range(10, 0, -1): 
+
+def extract_published_date(article_html):
+
+    pattern = r'Published(?:\s|&nbsp;|<!--.*?-->)+([A-Za-z]+\s+\d{1,2},\s+\d{4})'   
+    match = re.search(pattern, article_html)
+    if match:
+        date_str = match.group(1)  
+        try:
+            date_obj = datetime.strptime(date_str, "%b %d, %Y")
+            return date_obj.strftime("%Y-%m-%d")
+        except:
+            return None
+    return None
+
+for month in range(10, 9, -1): 
     url = "https://www.straitstimes.com/sitemap/2025/{}/feeds.xml".format(month)
     soup = BeautifulSoup(requests.get(url).content, "xml")
+
     for loc in soup.find_all("loc"):
         if "/business/" in loc.text:
-            last_modified = loc.find_next("lastmod")
-            if not last_modified: 
-                print("No last modified date found for article: ", loc.text)
+            try:
+                article = Article(loc.text)
+                article.download()
+                html = article.html
+                # Check paywall
+                if PAYWALL_TEXT in html:
+                    paywalled_articles += 1
+                    continue
+                
+                # Extract date from HTML
+                published_date = extract_published_date(html)
+                
+                if not published_date:
+                    print(f"Could not extract date from: {loc.text}")
+                    continue
+
+                # Parse and get summary
+                article.parse()
+                article.nlp()
+                
+                # if len(articles_by_date[published_date]["titles"]) >= 1:
+                #     continue  # limit to 1 articles per date
+
+                # Store everything
+                articles_by_date[published_date]["titles"].append(article.title)
+                articles_by_date[published_date]["summaries"].append(article.summary)
+                articles_by_date[published_date]["urls"].append(loc.text)
+                
+                non_paywall_article_count += 1
+                print(f"✓ {published_date}: {article.title}")
+                
+                time.sleep(1) 
+                
+            except Exception as e:
+                print(f"Error processing {loc.text}: {e}")
                 continue
-            else: 
-                last_modified = last_modified.text
-            total_count += 1
-            article = Article(loc.text)
-            article.download() 
-            if "For subscribers" in article.html: 
-                paywalled_articles += 1
-                continue
-            non_paywall_business_articles.append((loc.text, last_modified))
-            print("Fetching article: ", loc.text)
-            if total_count >= stop_limit:
-                break
-
-print("Total non-paywalled business articles fetched: ", len(non_paywall_business_articles))
-print("Total paywalled articles skipped: ", paywalled_articles)
 
 
-## Test summary 
-article = Article(non_paywall_business_articles[0][0])
-article.download()
-article.parse()
-article.nlp()
-print("Title: ", article.title)
-print("summary: ", article.summary)
+
+import csv
+
+import csv, json
+
+out_path = "st_articles_summary.csv"
+
+with open(out_path, "w", newline="", encoding="utf-8") as f:
+    writer = csv.writer(f)
+    writer.writerow(["date", "num_titles", "titles", "summaries", "urls"])
+
+    for dt in sorted(articles_by_date.keys()):
+        data = articles_by_date[dt]
+        writer.writerow([
+            dt,
+            len(data["titles"]),
+            json.dumps(data["titles"], ensure_ascii=False),
+            json.dumps(data["summaries"], ensure_ascii=False),
+            json.dumps(data["urls"], ensure_ascii=False),
+        ])
+
+print(f"Wrote {len(articles_by_date)} rows to {out_path}")
+
+

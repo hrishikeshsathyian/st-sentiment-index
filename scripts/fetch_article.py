@@ -42,3 +42,10 @@ print("Total non-paywalled business articles fetched: ", len(non_paywall_busines
 print("Total paywalled articles skipped: ", paywalled_articles)
 
 
+## Test summary 
+article = Article(non_paywall_business_articles[0][0])
+article.download()
+article.parse()
+article.nlp()
+print("Title: ", article.title)
+print("summary: ", article.summary)

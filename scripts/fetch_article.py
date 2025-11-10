@@ -60,13 +60,14 @@ def extract_article(loc_text):
 
 urls_to_parse = []
 
-for month in range(10, 0, -1): 
-    url = f"https://www.straitstimes.com/sitemap/2025/{month}/feeds.xml"
-    soup = BeautifulSoup(requests.get(url).content, "xml")
-    
-    for loc in soup.find_all("loc"):
-        if "/business/" in loc.text:
-            urls_to_parse.append(loc.text)
+for year in range(2025, 2023, -1):
+    for month in range(12, 0, -1): 
+        url = f"https://www.straitstimes.com/sitemap/{year}/{month}/feeds.xml"
+        soup = BeautifulSoup(requests.get(url).content, "xml")
+        
+        for loc in soup.find_all("loc"):
+            if "/business/" in loc.text:
+                urls_to_parse.append(loc.text)
 
 # Number of threads (adjust based on your system)
 max_threads = 15

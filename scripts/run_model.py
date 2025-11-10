@@ -12,8 +12,8 @@ import pickle
 
 
 # Load the embeddings
-print("\n📂 Loading data...")
-embeddings_df = pd.read_pickle('/Users/hrishikeshsathyian/Desktop/nlp-insa/dataset/daily_embeddings.pkl')
+print("\n Loading data...")
+embeddings_df = pd.read_pickle('/Users/hrishikeshsathyian/Desktop/nlp-insa/dataset/daily_embeddings_e5-small-v2.pkl')
 sti_df = pd.read_csv('/Users/hrishikeshsathyian/Desktop/nlp-insa/dataset/sti_historical_data.csv')
 
 # Clean dates
@@ -41,7 +41,8 @@ print("="*80)
 # Prepare features
 X_title = np.vstack(merged_df['title_embedding'].values)
 X_summary = np.vstack(merged_df['summary_embedding'].values)
-X = np.hstack([X_title, X_summary])  # 768 features
+X = X_summary
+
 y = merged_df['target'].values
 
 print(f"\nFeatures: {X.shape}")
@@ -49,7 +50,7 @@ print(f"Target: {y.shape}")
 
 # Split data
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
+    X, y, test_size=0.1, random_state=42, stratify=y
 )
 
 print(f"\nTrain: {len(X_train)} | Test: {len(X_test)}")
@@ -135,7 +136,7 @@ test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
 # Define LSTM Model
 class LSTMModel(nn.Module):
-    def __init__(self, input_size=768, hidden_size=128, num_layers=2, num_classes=2):
+    def __init__(self, input_size=384, hidden_size=128, num_layers=2, num_classes=2):
         super(LSTMModel, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers

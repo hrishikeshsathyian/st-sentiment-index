@@ -16,16 +16,11 @@ paywalled_articles = 0
 non_paywall_article_count = 0
 
 def extract_published_date(article_html):
-
-    pattern = r'Published(?:\s|&nbsp;|<!--.*?-->)+([A-Za-z]+\s+\d{1,2},\s+\d{4})'   
+    pattern = r'Published(?:\s|&nbsp;|<!--.*?-->)+([A-Za-z]+\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}\s+[APM]{2})'
     match = re.search(pattern, article_html)
     if match:
-        date_str = match.group(1)  
-        try:
-            date_obj = datetime.strptime(date_str, "%b %d, %Y")
-            return date_obj.strftime("%Y-%m-%d")
-        except:
-            return None
+        dt = datetime.strptime(match.group(1), "%b %d, %Y, %I:%M %p")
+        return dt
     return None
 
 

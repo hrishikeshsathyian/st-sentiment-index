@@ -3,6 +3,7 @@
 import re
 import pandas as pd 
 import sentence_transformers
+import pickle
 
 print("Script")
 
@@ -76,7 +77,7 @@ for date in sorted(daily_articles.keys()):
 
 
 final_df = pd.DataFrame(final_data)
-final_df.to_csv('daily_embeddings.csv', index=False)
+final_df.to_pickle('daily_embeddings.pkl')
 
 print("\n" + "="*80)
 print("SUMMARY")
